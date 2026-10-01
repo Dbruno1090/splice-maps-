@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Splice Map</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1c2b35">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Splice Map">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet" crossorigin="anonymous">
+<style>
+:root{
+  --paper:#e9eee9; --panel:#f7f9f6; --panel-2:#eef2ee; --ink:#1c2b35; --ink-2:#56666f; --line:#c6d0ca;
+  --accent:#0d6b86; --accent-ink:#ffffff; --trace:#e2700c; --warn:#b3261e; --ok:#2f7d46; --grid:#cfd8d1;
+  --sans:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --cond:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#141c21; --panel:#1b252b; --panel-2:#222e35; --ink:#e2e9e4; --ink-2:#9aa9a2; --line:#33424a;
+  --accent:#4cb6d4; --accent-ink:#08161b; --trace:#ff9a3d; --warn:#ff7b72; --ok:#6cc58a; --grid:#22303a;}}
+:root[data-theme="dark"]{
+  --paper:#141c21; --panel:#1b252b; --panel-2:#222e35; --ink:#e2e9e4; --ink-2:#9aa9a2; --line:#33424a;
+  --accent:#4cb6d4; --accent-ink:#08161b; --trace:#ff9a3d; --warn:#ff7b72; --ok:#6cc58a; --grid:#22303a;}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;height:100%;background:var(--paper);color:var(--ink);font:15px/1.4 var(--sans);overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--ink-2)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.del{color:var(--warn)}
+button.del.armed{background:var(--warn);color:#fff;border-color:var(--warn)}
+button.link{background:none;border:none;padding:0;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+input,select,textarea{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-width:0}
+textarea{width:100%;min-height:56px;resize:vertical}
+.app{display:grid;grid-template-rows:auto 1fr;height:100%}
+header.bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{font:600 20px/1 var(--cond);letter-spacing:.01em;margin-right:6px;display:flex;align-items:center;gap:8px}
+.brand svg{width:22px;height:22px}
+#projSel{max-width:220px}
+.searchwrap{position:relative;margin-left:auto}
+#search{width:220px}
+#results{position:absolute;right:0;top:100%;margin-top:4px;background:var(--panel);border:1px solid var(--line);border-radius:6px;min-width:260px;max-height:320px;overflow:auto;z-index:20;box-shadow:0 6px 20px rgba(0,0,0,.15)}
+#results button{display:block;width:100%;text-align:left;border:none;border-radius:0;background:none;padding:7px 10px}
+#results button:hover{background:var(--panel-2)}
+#saveState{font-size:13px;color:var(--ink-2);min-width:90px;text-align:right}
+.main{display:flex;min-height:0}
+#netState{font:600 13px var(--sans);color:#fff;background:var(--warn);border-radius:4px;padding:2px 8px}
+#netState[hidden],#installBtn[hidden]{display:none}
+.mapwrap{position:relative;flex:1;min-width:0;overflow:hidden}
+#map{width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.tools{position:absolute;left:10px;top:10px;display:flex;gap:4px;flex-wrap:wrap;z-index:5;max-width:calc(100% - 20px)}
+.tools button{display:flex;align-items:center;gap:6px;background:var(--panel);font:500 15px/1 var(--cond);padding:6px 9px}
+.tools button svg{width:18px;height:18px;overflow:visible}
+.tools button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tools .sep{width:8px}
+.hint{position:absolute;left:10px;bottom:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--ink-2);z-index:5;max-width:calc(100% - 20px)}
+.hint:empty{display:none}
+aside#insp{width:400px;flex:none;background:var(--panel);border-left:1px solid var(--line);overflow:auto}
+aside section{padding:14px 16px;border-bottom:1px solid var(--line)}
+aside h3{font:600 17px/1.2 var(--cond);margin:0 0 8px}
+.kind{display:flex;align-items:center;gap:8px;font:600 22px/1.1 var(--cond);margin-bottom:10px}
+.kind svg{width:22px;height:22px;overflow:visible}
+.fl{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--ink-2);margin-bottom:8px}
+.fl input,.fl select,.fl textarea{color:var(--ink);font-size:15px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--ink-2)}
+.msg{font-size:13px;margin:6px 0 0;min-height:1em}
+.msg.bad{color:var(--warn)} .msg.good{color:var(--ok)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:6px 0 12px}
+.stats div{display:flex;justify-content:space-between;border-bottom:1px dotted var(--line);padding:2px 0}
+.stats dt{color:var(--ink-2)} .stats dd{margin:0;font-weight:600}
+.help p{margin:0 0 8px;font-size:14px;color:var(--ink-2)}
+.cl{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.srow{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.sform{display:grid;grid-template-columns:1fr 64px;gap:6px;align-items:center}
+.sform .to{grid-column:1/-1;font-size:13px;color:var(--ink-2);margin:-2px 0}
+.sform .bot{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sform .bot input{width:64px}
+.tablewrap{overflow-x:auto;margin-top:8px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font:600 14px/1.2 var(--cond);color:var(--ink-2);padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:4px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.tc{white-space:nowrap;text-align:right}
+.tag{font-size:12px;color:var(--ink-2);margin-right:4px}
+button.x{padding:0 7px;line-height:22px;border-radius:4px}
+.ep{white-space:nowrap}
+.ep small{color:var(--ink-2)}
+.d{display:inline-block;width:11px;height:11px;border-radius:50%;border:1px solid rgba(0,0,0,.45);margin-right:2px;vertical-align:-1px}
+.foot{display:flex;gap:6px;flex-wrap:wrap}
+.foot .del{margin-left:auto}
+/* map */
+.cab .hit{stroke:transparent;stroke-width:18;cursor:pointer}
+.cab .ln{stroke:var(--ink-2);stroke-linecap:round;pointer-events:none}
+.cab.ug .ln{stroke-dasharray:9 6}
+.cab.sel .ln{stroke:var(--accent)}
+.cab.tr .ln{stroke:var(--trace)}
+.clab{font:500 11px var(--cond);fill:var(--ink-2);paint-order:stroke;stroke:var(--paper);stroke-width:4px;pointer-events:none}
+.cab.tr .clab{fill:var(--trace)}
+.nd{cursor:grab}
+.nd .sh{fill:var(--panel);stroke:var(--ink);stroke-width:1.8}
+.nd.olt .sh{fill:var(--ink)}
+.nd.home .sh{fill:var(--panel-2)}
+.nd.sel .sh{stroke:var(--accent);stroke-width:3.5}
+.nd.tr .sh{stroke:var(--trace);stroke-width:3.5}
+.nd.start .sh{stroke:var(--accent);stroke-dasharray:4 3;stroke-width:3}
+.nlab{font:600 12px var(--cond);fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--paper);stroke-width:4px;pointer-events:none}
+.cab .hit,.cab .ln,.nd .sh{vector-effect:non-scaling-stroke}
+.far .nlab,.far .clab{display:none}
+.far .nd.sel .nlab,.far .nd.tr .nlab{display:inline}
+.imptable select{width:100%}
+.modal .box{max-height:90vh}
+#impBody{overflow:auto;min-height:0}
+#lmap{position:absolute;inset:0;display:none;z-index:1;background:var(--paper);font:inherit}
+.mapview #lmap{display:block}.mapview #map{display:none}
+.tools,.hint{z-index:1100!important}.trace{z-index:1150!important}.loading{z-index:1200!important}
+.seg{display:flex}.seg button{border-radius:0;margin-left:-1px}.seg button:first-child{border-radius:6px 0 0 6px;margin-left:0}.seg button:last-child{border-radius:0 6px 6px 0}
+.seg button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.lnode{background:none;border:none}.lnode svg{width:30px;height:30px;overflow:visible;display:block}
+.lnode .lab{position:absolute;top:31px;left:50%;transform:translateX(-50%);white-space:nowrap;font:600 12px var(--cond);color:#fff;text-shadow:0 0 3px #000,0 0 3px #000,0 0 2px #000;pointer-events:none}
+#lmap.far .lnode .lab{display:none}
+.leaflet-control-layers,.leaflet-control-scale-line{font:14px var(--sans)}
+.ghost{stroke:var(--accent);stroke-width:2;stroke-dasharray:6 5;pointer-events:none}
+.gridrect{pointer-events:all}
+/* trace */
+.trace{position:absolute;right:10px;top:54px;bottom:10px;width:min(420px,calc(100% - 20px));background:var(--panel);border:1px solid var(--line);border-radius:8px;z-index:6;display:flex;flex-direction:column;box-shadow:0 8px 28px rgba(0,0,0,.18)}
+.trace[hidden]{display:none}
+.trh{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:flex-start}
+.trh .t{flex:1}
+.trh b{font:600 18px/1.2 var(--cond);display:block}
+.trh span{font-size:13px;color:var(--ink-2)}
+.trb{overflow:auto;padding:10px 12px 14px}
+ol.chain{list-style:none;margin:0;padding:0 0 0 14px;border-left:2px solid var(--trace)}
+ol.chain>li{position:relative;padding:3px 0 3px 8px;font-size:14px}
+ol.chain>li::before{content:"";position:absolute;left:-20px;top:9px;width:8px;height:8px;border-radius:50%;background:var(--panel);border:2px solid var(--trace)}
+ol.chain>li.br{padding-left:0}
+ol.chain>li.br::before{display:none}
+ol.chain ol.chain{margin:4px 0 6px 2px}
+.tn[data-nid]{cursor:pointer;font-weight:600;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.tn.warn{color:var(--warn);font-weight:600}
+.tn.end{font-weight:600;color:var(--ok)}
+.tn.muted{color:var(--ink-2)}
+.tn.spl{font-weight:600}
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal[hidden]{display:none}
+.modal .box{background:var(--panel);border-radius:10px;padding:16px;width:min(640px,100%);display:flex;flex-direction:column;gap:10px}
+.modal textarea{min-height:260px;font-size:12px}
+.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-2);z-index:4;pointer-events:none}
+@media (max-width:860px){
+  body{overflow:auto}
+  .app{height:auto;min-height:100%}
+  .main{flex-direction:column}
+  .mapwrap{height:62vh;flex:none}
+  aside#insp{width:auto;border-left:none;border-top:1px solid var(--line)}
+  .searchwrap{margin-left:0;flex:1} #search{width:100%}
+  .trace{top:auto;height:55%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" crossorigin="anonymous">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12h4l4-6h3M12 12l4 6h3" fill="none" stroke="currentColor" stroke-width="2"/></svg>Splice Map</div>
+    <select id="projSel" aria-label="Project"></select>
+    <button id="newProj">New project</button>
+    <div class="seg" id="viewSeg"><button data-view="schem">Schematic</button><button data-view="map">Satellite</button></div>
+    <div class="searchwrap"><input id="search" type="search" placeholder="Find a node or address" autocomplete="off"><div id="results" hidden></div></div>
+    <button id="installBtn" class="primary" hidden>Install app</button>
+    <span id="netState" class="offline" hidden>Offline</span>
+    <span id="saveState"></span>
+  </header>
+  <div class="main">
+    <div class="mapwrap" id="mapwrap">
+      <div class="tools" id="tools"></div>
+      <svg id="map" xmlns="http://www.w3.org/2000/svg">
+        <defs><pattern id="gridp" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1.2" fill="var(--grid)"/></pattern></defs>
+        <g id="world"></g>
+      </svg>
+      <div id="lmap"></div>
+      <div class="hint" id="hint"></div>
+      <div class="loading" id="loading">Opening projects…</div>
+      <div class="trace" id="trace" hidden>
+        <div class="trh"><div class="t"><b id="trTitle"></b><span id="trSum"></span></div><button id="trClose">Close</button></div>
+        <div class="trb" id="trBody"></div>
+      </div>
+    </div>
+    <aside id="insp"></aside>
+  </div>
+</div>
+<div class="modal" id="modal" hidden><div class="box"><b id="mTitle"></b><span class="muted" id="mSub"></span><textarea id="mText" readonly></textarea><div class="row"><button id="mCopy" class="primary">Copy</button><button id="mClose">Close</button></div></div></div>
+<div class="modal" id="imp" hidden><div class="box"><b style="font:600 20px var(--cond)">Import from Google Earth</b><div id="impBody"></div><div class="row"><button class="primary" id="impGo">Import</button><button id="impCancel">Cancel</button></div></div></div>
+<input type="file" id="kmlIn" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" hidden>
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rid=()=>Math.random().toString(36).slice(2,10);
+const FC=[['BL','#2563c9'],['OR','#ef8a17'],['GR','#2f9e4f'],['BR','#8b5a2b'],['SL','#8d969e'],['WH','#ffffff'],['RD','#d63030'],['BK','#1b1b1b'],['YL','#f1d01a'],['VI','#8a44c4'],['RS','#f3a5bb'],['AQ','#3ccfd3']];
+const TYPES={olt:{label:'OLT / hub',prefix:'OLT'},closure:{label:'Splice closure',prefix:'SC'},fdh:{label:'FDH / cabinet',prefix:'FDH'},mst:{label:'Terminal / MST',prefix:'MST'},home:{label:'Home / ONT',prefix:'H'}};
+const COUNTS=[1,2,4,6,8,12,24,36,48,72,96,144,216,288];
+const STYPES={fusion:'Fusion',mech:'Mech',conn:'Conn'};
+const LK='splicemap.v1';
+
+let P=null, projects=[], sel=null, mode='select', cableStart=null, traceState=null;
+let geoMsg=null,impData=null;
+let view={x:0,y:0,k:1}, db=null, downloads=null, drag=null, pan=null, saveT=null;
+const formMemo={};
+const svg=$('#map'), world=$('#world');
+
+/* ---------- model helpers ---------- */
+function blank(name){return {id:rid(),name,nodes:[],cables:[],splices:[],seq:{},updated:Date.now()}}
+const node=id=>P.nodes.find(n=>n.id===id);
+const cable=id=>P.cables.find(c=>c.id===id);
+function findSpl(id){for(const n of P.nodes)for(const s of (n.splitters||[]))if(s.id===id)return {node:n,spl:s};return {}}
+function nextName(prefix){P.seq=P.seq||{};P.seq[prefix]=(P.seq[prefix]||0)+1;return prefix+'-'+String(P.seq[prefix]).padStart(2,'0')}
+function fcol(f){const t=Math.floor((f-1)/12),i=(f-1)%12;return {tube:FC[t%12],fib:FC[i],stripe:t>=12}}
+function dots(f){const c=fcol(f);return `<i class="d" style="background:${c.tube[1]}" title="Tube ${c.tube[0]}"></i><i class="d" style="background:${c.fib[1]}" title="Fiber ${c.fib[0]}"></i>`}
+function nodeLabel(n){return n?(n.type==='home'&&n.addr?n.addr:n.name):'?'}
+function epInfo(ep){
+  const [t,id,x]=ep.split(':');
+  if(t==='c'){const c=cable(id),f=+x,col=fcol(f),cc=`${col.tube[0]}${col.stripe?'*':''}/${col.fib[0]}`;
+    return {txt:`${c?c.name:'?'} F${f} ${cc}`,html:`<span class="ep">${dots(f)} <b>${esc(c?c.name:'?')}</b> F${f} <small>${cc}</small></span>`}}
+  if(t==='s'){const {spl}=findSpl(id),nm=spl?spl.name:'?',lab=x==='in'?`Splitter ${nm} in`:`Splitter ${nm} out ${x.slice(1)}`;
+    return {txt:lab,html:`<span class="ep">${esc(lab)}</span>`}}
+  if(t==='p'){const n=node(id),lab=`${n?n.name:'?'} PON ${x}`;return {txt:lab,html:`<span class="ep"><b>${esc(lab)}</b></span>`}}
+  return {txt:ep,html:esc(ep)};
+}
+function partners(nid,ep){return P.splices.filter(s=>s.node===nid&&(s.a===ep||s.b===ep)).map(s=>s.a===ep?s.b:s.a)}
+function epSort(a,b){return a.localeCompare(b,undefined,{numeric:true})}
+function groupsAt(nid){
+  const n=node(nid),g=[];
+  if(n.type==='olt')g.push({key:'p:'+nid,label:`PON ports (${n.ports||16})`,size:n.ports||16,ep:i=>`p:${nid}:${i}`});
+  for(const c of P.cables)if(c.from===nid||c.to===nid){const o=node(c.from===nid?c.to:c.from);
+    g.push({key:'c:'+c.id,label:`${c.name} ${c.count}F, ${c.from===nid?'to':'from'} ${nodeLabel(o)}`,size:c.count,ep:i=>`c:${c.id}:${i}`})}
+  for(const s of n.splitters||[]){
+    g.push({key:'si:'+s.id,label:`Splitter ${s.name} input`,size:1,ep:()=>`s:${s.id}:in`});
+    g.push({key:'so:'+s.id,label:`Splitter ${s.name} outputs (1x${s.ratio})`,size:s.ratio,ep:i=>`s:${s.id}:o${i}`});
+  }
+  return g;
+}
+
+/* ---------- trace ---------- */
+function tracer(){
+  const vis=new Set(),nodes=new Set(),cables=new Set();
+  function arrive(nid,ep){
+    nodes.add(nid);const n=node(nid),k=nid+'|'+ep;
+    if(vis.has(k))return {t:`Loops back to ${esc(n.name)}`,cls:'warn'};
+    vis.add(k);
+    if(n.type==='home')return {t:`ONT at ${esc(nodeLabel(n))}`,cls:'end home',nid};
+    const ps=partners(nid,ep);
+    if(!ps.length)return {t:`Dead end: not spliced at ${esc(n.name)}`,cls:'warn',nid};
+    return {t:esc(n.name),nid,kids:ps.map(p=>enter(nid,p))};
+  }
+  function enter(nid,ep){
+    const k=nid+'|'+ep;if(vis.has(k))return {t:'Already traced',cls:'muted'};vis.add(k);
+    const [t,id,x]=ep.split(':');
+    if(t==='c'){const c=cable(id);if(!c)return {t:'Missing cable',cls:'warn'};cables.add(id);
+      return {t:epInfo(ep).html,kids:[arrive(c.from===nid?c.to:c.from,ep)]}}
+    if(t==='p'){nodes.add(id);return {t:`${esc(node(id).name)} PON ${x}`,cls:'end olt',nid:id}}
+    if(t==='s'){const {spl}=findSpl(id);if(!spl)return {t:'Missing splitter',cls:'warn'};
+      if(x==='in'){const kids=[],unused=[];
+        for(let i=1;i<=spl.ratio;i++){const oe=`s:${id}:o${i}`;vis.add(nid+'|'+oe);const ps=partners(nid,oe);
+          if(ps.length)kids.push({t:`Out ${i}`,cls:'spl',kids:ps.map(p=>enter(nid,p))});else unused.push(i)}
+        if(unused.length)kids.push({t:`Unused outputs: ${unused.join(', ')}`,cls:'muted'});
+        return {t:`Splitter ${esc(spl.name)} 1x${spl.ratio} in`,cls:'spl',kids}}
+      const ie=`s:${id}:in`;vis.add(nid+'|'+ie);const ps=partners(nid,ie);
+      return {t:`Splitter ${esc(spl.name)} out ${x.slice(1)}, to input`,cls:'spl',kids:ps.length?ps.map(p=>enter(nid,p)):[{t:'Splitter input not spliced',cls:'warn'}]}}
+    return {t:esc(ep)};
+  }
+  return {arrive,enter,vis,nodes,cables};
+}
+function summarize(tree){let homes=0;const olts=[];(function w(t){if(!t)return;if(t.cls==='end home')homes++;if(t.cls==='end olt')olts.push(t.t);(t.kids||[]).forEach(w)})(tree);
+  const p=[];if(olts.length)p.push(`Fed from ${olts.join(', ')}`);if(homes)p.push(`${homes} home${homes>1?'s':''} reached`);if(!olts.length)p.push('No OLT port found upstream');return p.join('. ')}
+function showTrace(title,tree,T){traceState={tree,nodes:T.nodes,cables:T.cables};
+  $('#trTitle').innerHTML=title;$('#trSum').innerHTML=summarize(tree);
+  $('#trBody').innerHTML=`<ol class="chain">${chain(tree)}</ol>`;$('#trace').hidden=false;renderMap()}
+function chain(t){let h='',cur=t;
+  while(cur){h+=`<li><span class="tn ${cur.cls||''}" ${cur.nid?`data-nid="${cur.nid}"`:''}>${cur.t}</span></li>`;
+    const k=cur.kids||[];
+    if(k.length>1){h+=k.map(x=>`<li class="br"><ol class="chain">${chain(x)}</ol></li>`).join('');break}
+    cur=k.length===1?k[0]:null}
+  return h}
+function traceFiber(cid,f){const c=cable(cid),ep=`c:${cid}:${f}`,T=tracer();T.cables.add(cid);
+  const a=node(c.from),b=node(c.to);
+  const tree={t:epInfo(ep).html,kids:[{t:`Toward ${esc(nodeLabel(a))}`,cls:'muted',kids:[T.arrive(c.from,ep)]},{t:`Toward ${esc(nodeLabel(b))}`,cls:'muted',kids:[T.arrive(c.to,ep)]}]};
+  showTrace(`Fiber ${esc(c.name)} F${f}`,tree,T)}
+function traceHome(nid){const {tree,T}=homeTree(nid);showTrace(`Trace from ${esc(nodeLabel(node(nid)))}`,tree,T)}
+function homeTree(nid){const n=node(nid),T=tracer();T.nodes.add(nid);const kids=[];
+  for(const c of P.cables)if(c.from===nid||c.to===nid){const o=c.from===nid?c.to:c.from;let fs=[];
+    for(let f=1;f<=c.count;f++)if(partners(o,`c:${c.id}:${f}`).length)fs.push(f);
+    if(!fs.length)fs=[1];
+    for(const f of fs){const ep=`c:${c.id}:${f}`;T.vis.add(nid+'|'+ep);T.cables.add(c.id);kids.push({t:epInfo(ep).html,kids:[T.arrive(o,ep)]})}}
+  if(!kids.length)kids.push({t:'No drop cable connected',cls:'warn'});
+  return {tree:{t:esc(nodeLabel(n)),nid,kids},T}}
+function tracePort(nid,i){const ep=`p:${nid}:${i}`,T=tracer();T.vis.add(nid+'|'+ep);T.nodes.add(nid);
+  const ps=partners(nid,ep);showTrace(`${esc(node(nid).name)} PON ${i}`,{t:`${esc(node(nid).name)} PON ${i}`,cls:'end olt',nid,kids:ps.map(p=>T.enter(nid,p))},T)}
+function traceSpl(nid,sid){const {spl}=findSpl(sid),ie=`s:${sid}:in`,T=tracer();T.nodes.add(nid);
+  const down=T.enter(nid,ie);const up=partners(nid,ie).map(p=>T.enter(nid,p));
+  showTrace(`Splitter ${esc(spl.name)} at ${esc(node(nid).name)}`,{t:`Splitter ${esc(spl.name)} 1x${spl.ratio}`,cls:'spl',kids:[{t:'Upstream',cls:'muted',kids:up.length?up:[{t:'Input not spliced',cls:'warn'}]},{t:'Downstream',cls:'muted',kids:[down]}]},T)}
+function closeTrace(){traceState=null;$('#trace').hidden=true;renderMap()}
+
+/* ---------- map ---------- */
+function shape(t){switch(t){
+  case 'olt':return '<rect class="sh" x="-14" y="-14" width="28" height="28" rx="2"/>';
+  case 'closure':return '<ellipse class="sh" rx="17" ry="11"/>';
+  case 'fdh':return '<rect class="sh" x="-11" y="-16" width="22" height="32" rx="3"/><line x1="-11" y1="-3" x2="11" y2="-3" stroke="currentColor" stroke-width="1.4" style="stroke:var(--ink)"/>';
+  case 'mst':return '<path class="sh" d="M0,-14 L13,10 L-13,10 Z"/>';
+  default:return '<path class="sh" d="M-10,12 V-2 L0,-12 L10,-2 V12 Z"/>';}}
+function icon(t){return `<svg viewBox="-17 -17 34 34" class="nd ${t}" aria-hidden="true">${shape(t)}</svg>`}
+function renderMap(){if(!P){world.innerHTML='';return}if(viewMode==='map'){renderLeaflet();return}renderSchem()}
+function renderSchem(){
+  const hn=traceState&&traceState.nodes,hc=traceState&&traceState.cables;let s='<rect class="gridrect" x="-50000" y="-50000" width="100000" height="100000" fill="url(#gridp)"/>';
+  for(const c of P.cables){const a=node(c.from),b=node(c.to);if(!a||!b)continue;
+    const w=c.count<=2?1.6:c.count<=12?2.6:c.count<=48?3.6:5;
+    const cls='cab'+(sel&&sel.kind==='cable'&&sel.id===c.id?' sel':'')+(hc&&hc.has(c.id)?' tr':'')+(c.kind==='ug'?' ug':'');
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+    s+=`<g class="${cls}" data-cid="${c.id}"><line class="hit" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><line class="ln" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" style="stroke-width:${hc&&hc.has(c.id)?w+2:w}"/>`+
+      (c.count>1?`<text class="clab" x="${mx}" y="${my-6}" text-anchor="middle">${esc(c.name)} ${c.count}F</text>`:'')+'</g>'}
+  s+='<line id="ghost" class="ghost" x1="0" y1="0" x2="0" y2="0" visibility="hidden"/>';
+  const ns=Math.min(8,Math.max(1,.55/view.k));
+  for(const n of P.nodes){
+    const cls=`nd ${n.type}`+(sel&&sel.kind==='node'&&sel.id===n.id?' sel':'')+(hn&&hn.has(n.id)?' tr':'')+(cableStart===n.id?' start':'');
+    s+=`<g class="${cls}" data-nid="${n.id}" transform="translate(${n.x},${n.y}) scale(${ns})">${shape(n.type)}<text class="nlab" y="${n.type==='fdh'?30:28}">${esc(nodeLabel(n))}</text></g>`}
+  world.innerHTML=s;applyView();
+}
+function applyView(){world.setAttribute('transform',`translate(${view.x},${view.y}) scale(${view.k})`);svg.classList.toggle('far',view.k<.35)}
+function toWorld(e){const r=svg.getBoundingClientRect();return {x:(e.clientX-r.left-view.x)/view.k,y:(e.clientY-r.top-view.y)/view.k}}
+function fit(){if(viewMode==='map'){fitLeaflet();return}const r=svg.getBoundingClientRect();if(!P||!P.nodes.length){view={x:r.width/2,y:r.height/2,k:1};applyView();return}
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const n of P.nodes){x0=Math.min(x0,n.x);y0=Math.min(y0,n.y);x1=Math.max(x1,n.x);y1=Math.max(y1,n.y)}
+  const k=Math.max(.02,Math.min(1.6,(r.width-120)/Math.max(1,x1-x0),(r.height-140)/Math.max(1,y1-y0)));
+  view={k,x:r.width/2-(x0+x1)/2*k,y:r.height/2-(y0+y1)/2*k+10};applyView();renderMap()}
+function zoomBy(f,cx,cy){const r=svg.getBoundingClientRect();cx=cx??r.width/2;cy=cy??r.height/2;
+  const k2=Math.max(.02,Math.min(4,view.k*f));view.x=cx-(cx-view.x)*(k2/view.k);view.y=cy-(cy-view.y)*(k2/view.k);view.k=k2;applyView();mapSoon()}
+function centerOn(n){if(viewMode==='map'&&lmap){const l=llOf(n);if(l)lmap.setView(l,Math.max(lmap.getZoom(),18));return}const r=svg.getBoundingClientRect();view.x=r.width/2-n.x*view.k;view.y=r.height/2-n.y*view.k;applyView()}
+
+/* ---------- tools ---------- */
+const TOOLS=[['select','Select','<svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 2-3 6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'],
+  ...Object.keys(TYPES).map(t=>['add:'+t,TYPES[t].label.split(' /')[0],icon(t)]),
+  ['cable','Cable','<svg viewBox="0 0 24 24"><circle cx="5" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="19" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 16L17 8" stroke="currentColor" stroke-width="2.5"/></svg>']];
+const HINTS={select:'Drag nodes to move them. Drag empty space to pan, scroll to zoom.',cable:'Click the upstream node, then the downstream node. Esc to finish.'};
+function renderTools(){$('#tools').innerHTML=TOOLS.map(([m,l,i])=>`<button data-mode="${m}" class="${mode===m?'on':''}" title="${l}">${i}<span>${l}</span></button>`).join('')+
+  '<span class="sep"></span><button data-z="out" title="Zoom out">−</button><button data-z="in" title="Zoom in">+</button><button data-z="fit">Fit</button>';
+  $('#hint').textContent=hintText()}
+function setMode(m){mode=m;cableStart=null;routePts=[];renderTools();renderMap()}
+$('#tools').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.mode)setMode(b.dataset.mode);
+  const mp=viewMode==='map'&&lmap;if(b.dataset.z==='in')mp?lmap.zoomIn():zoomBy(1.25);if(b.dataset.z==='out')mp?lmap.zoomOut():zoomBy(.8);if(b.dataset.z==='fit')fit()});
+
+/* ---------- map interaction ---------- */
+svg.addEventListener('pointerdown',e=>{
+  if(!P)return;const pt=toWorld(e),ng=e.target.closest('[data-nid]'),cg=e.target.closest('[data-cid]');
+  if(mode==='cable'){
+    if(ng){const id=ng.dataset.nid;if(!cableStart){cableStart=id;renderTools();renderMap()}else if(id!==cableStart){addCable(cableStart,id);cableStart=null;renderTools()}}
+    else{cableStart=null;renderTools();renderMap()}
+    return}
+  if(mode.startsWith('add:')&&!ng&&!cg){addNode(mode.slice(4),pt);return}
+  if(ng){const n=node(ng.dataset.nid);select('node',n.id);drag={n,ox:pt.x-n.x,oy:pt.y-n.y,moved:false};svg.setPointerCapture(e.pointerId);return}
+  if(cg){select('cable',cg.dataset.cid);return}
+  pan={sx:e.clientX,sy:e.clientY,vx:view.x,vy:view.y,moved:false};svg.setPointerCapture(e.pointerId)});
+svg.addEventListener('pointermove',e=>{
+  if(drag){const pt=toWorld(e);drag.n.x=Math.round(pt.x-drag.ox);drag.n.y=Math.round(pt.y-drag.oy);drag.moved=true;renderMap();return}
+  if(pan){const dx=e.clientX-pan.sx,dy=e.clientY-pan.sy;if(Math.abs(dx)+Math.abs(dy)>3)pan.moved=true;view.x=pan.vx+dx;view.y=pan.vy+dy;applyView();return}
+  if(mode==='cable'&&cableStart){const g=$('#ghost'),a=node(cableStart),pt=toWorld(e);if(g&&a){g.setAttribute('x1',a.x);g.setAttribute('y1',a.y);g.setAttribute('x2',pt.x);g.setAttribute('y2',pt.y);g.setAttribute('visibility','visible')}}});
+function endPtr(){if(drag&&drag.moved)save();if(pan&&!pan.moved&&sel)select(null);drag=null;pan=null}
+svg.addEventListener('pointerup',endPtr);svg.addEventListener('pointercancel',endPtr);
+svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect();zoomBy(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,select'))return;
+  if(e.key==='Escape'){if(mode!=='select')setMode('select');else if(traceState)closeTrace();else select(null)}
+  if(e.key==='Backspace'&&mode==='cable'&&routePts.length){e.preventDefault();routePts.pop();drawGhost()}
+  if(e.key==='c'||e.key==='C')setMode('cable');if(e.key==='v'||e.key==='V')setMode('select')});
+
+/* ---------- mutations ---------- */
+function addNode(type,pt,extra){const n={id:rid(),type,name:nextName(TYPES[type].prefix),x:Math.round(pt.x),y:Math.round(pt.y),notes:'',...(extra||{})};
+  if(type==='olt')n.ports=16;if(type!=='home')n.splitters=[];P.nodes.push(n);select('node',n.id);save()}
+function addCable(a,b,path){const A=node(a),B=node(b),drop=A.type==='home'||B.type==='home';
+  const pre=drop?'D':(A.type==='olt'||B.type==='olt')?'F':'C';
+  const c={id:rid(),name:nextName(pre),from:a,to:b,count:drop?1:12,ft:path?pathFt(path):'',kind:'aerial',notes:''};if(path)c.path=path;P.cables.push(c);select('cable',c.id);save()}
+function delCableSplices(cid,minF){P.splices=P.splices.filter(s=>![s.a,s.b].some(ep=>{const p=ep.split(':');return p[0]==='c'&&p[1]===cid&&(minF==null||+p[2]>minF)}))}
+function delNode(id){const n=node(id);const cids=P.cables.filter(c=>c.from===id||c.to===id).map(c=>c.id);
+  cids.forEach(c=>delCableSplices(c));P.cables=P.cables.filter(c=>!cids.includes(c.id));P.splices=P.splices.filter(s=>s.node!==id);
+  P.nodes=P.nodes.filter(x=>x!==n);select(null);save()}
+function delCable(id){delCableSplices(id);P.cables=P.cables.filter(c=>c.id!==id);select(null);save()}
+function select(kind,id){sel=kind?{kind,id}:null;renderMap();renderInsp()}
+
+/* ---------- inspector ---------- */
+function renderInsp(){const el=$('#insp');if(!P){el.innerHTML='';return}
+  if(sel&&sel.kind==='node'){const n=node(sel.id);if(n){el.innerHTML=nodeInsp(n);restoreForm(n.id);return}}
+  if(sel&&sel.kind==='cable'){const c=cable(sel.id);if(c){el.innerHTML=cableInsp(c);return}}
+  el.innerHTML=projInsp()}
+function projInsp(){const _m=geoMsg;setTimeout(()=>{if(geoMsg===_m)geoMsg=null});const cnt={};P.nodes.forEach(n=>cnt[n.type]=(cnt[n.type]||0)+1);const ft=P.cables.reduce((s,c)=>s+(+c.ft||0),0);
+  return `<section><label class="fl">Project name<input data-pf="name" value="${esc(P.name)}"></label>
+  <dl class="stats">${Object.keys(TYPES).map(t=>`<div><dt>${TYPES[t].label}</dt><dd>${cnt[t]||0}</dd></div>`).join('')}
+  <div><dt>Cables</dt><dd>${P.cables.length}</dd></div><div><dt>Cable footage</dt><dd>${ft.toLocaleString()} ft</dd></div><div><dt>Splices</dt><dd>${P.splices.length}</dd></div></dl>
+  ${P.nodes.length?'':'<p>Nothing placed yet. Start with an OLT, then closures, cabinets, terminals and homes, and connect them with cables.</p><button class="primary" data-act="example">Load an example build</button>'}</section>
+  <section class="help"><h3>How it works</h3>
+  <p>Place nodes from the toolbar and draw cables between them, upstream end first. Select a node to add splitters and log splices: pick two fibers or ports, set a count to do a whole run at once (F1–12 to F13–24, say).</p>
+  <p>Trace any fiber, PON port, splitter or home to see the full path from the OLT to the ONT, highlighted on the map.</p>
+  <p>Each closure can be saved as a splice sheet (HTML you can print) or CSV for closeout.</p></section>
+  <section><h3>Google Earth</h3><p class="muted" style="margin:0 0 8px">Bring in a KML or KMZ of your route design, or send this build back to Google Earth with splice and trace details on every placemark.</p>
+  <div class="row"><button class="primary" data-act="importKml">Import KML/KMZ</button><button data-act="exportKml">Export to Google Earth</button><button data-act="layoutGps">Lay out from GPS</button></div>${geoMsg?`<p class="msg ${geoMsg.bad?'bad':'good'}">${esc(geoMsg.t)}</p>`:''}</section>
+  <section class="foot"><button data-act="exportJson">Export JSON</button><button data-act="importJson">Import JSON</button><button data-act="exportCsv">All splices CSV</button><button class="del" data-act="delProj">Delete project</button></section>`}
+function nodeInsp(n){const t=n.type;let h=`<section><div class="kind">${icon(t)}${esc(TYPES[t].label)}</div>
+  <label class="fl">${t==='home'?'Label':'Name'}<input data-f="name" value="${esc(n.name)}"></label>`;
+  if(t==='home')h+=`<label class="fl">Service address<input data-f="addr" value="${esc(n.addr||'')}"></label>
+    <div class="two"><label class="fl">Customer<input data-f="cust" value="${esc(n.cust||'')}"></label><label class="fl">ONT serial<input data-f="ont" value="${esc(n.ont||'')}"></label></div>`;
+  else h+=`<label class="fl">Location / pole / handhole<input data-f="addr" value="${esc(n.addr||'')}"></label>`;
+  h+=`<div class="two"><label class="fl">Latitude<input data-f="lat" inputmode="decimal" value="${esc(n.lat||'')}"></label><label class="fl">Longitude<input data-f="lon" inputmode="decimal" value="${esc(n.lon||'')}"></label></div>`;
+  if(n.lat&&n.lon)h+=`<p style="margin:0 0 8px"><a href="https://www.google.com/maps?q=${encodeURIComponent(n.lat+','+n.lon)}" target="_blank" rel="noopener" style="color:var(--accent)">Open in Google Maps</a></p>`;
+  h+=`<label class="fl">Notes<textarea data-f="notes">${esc(n.notes||'')}</textarea></label>`;
+  if(t==='home')h+=`<button class="primary" data-act="traceHome">Trace to OLT</button>`;
+  h+='</section>';
+  if(t==='olt'){const np=n.ports||16;let rows='';
+    for(let i=1;i<=np;i++){const ps=partners(n.id,`p:${n.id}:${i}`);rows+=`<tr><td>PON ${i}</td><td>${ps.length?ps.map(p=>epInfo(p).html).join('<br>'):'<span class="muted">Open</span>'}</td><td class="tc">${ps.length?`<button data-act="tracePort" data-i="${i}">Trace</button>`:''}</td></tr>`}
+    h+=`<section><h3>PON ports</h3><label class="fl" style="max-width:120px">Port count<input type="number" min="1" max="128" data-f="ports" value="${np}"></label><div class="tablewrap"><table>${rows}</table></div></section>`}
+  if(t!=='home'){const sp=n.splitters||[];
+    h+=`<section><h3>Splitters</h3>${sp.map(s=>{let used=0;for(let i=1;i<=s.ratio;i++)if(partners(n.id,`s:${s.id}:o${i}`).length)used++;
+      return `<div class="srow"><b>${esc(s.name)}</b><span>1x${s.ratio}</span><span class="muted">${used} of ${s.ratio} outputs spliced</span><button data-act="traceSpl" data-id="${s.id}">Trace</button><button class="del" data-act="delSpl" data-id="${s.id}">Remove</button></div>`}).join('')||'<p class="muted" style="margin:0 0 8px">None.</p>'}
+      <div class="row"><select id="splRatio" aria-label="Split ratio">${[2,4,8,16,32,64].map(r=>`<option value="${r}" ${r===8?'selected':''}>1x${r}</option>`).join('')}</select><button data-act="addSpl">Add splitter</button></div></section>`}
+  const cs=P.cables.filter(c=>c.from===n.id||c.to===n.id);
+  h+=`<section><h3>Cables here</h3><div class="cl">${cs.map(c=>{const o=node(c.from===n.id?c.to:c.from);return `<button class="link" data-act="selCable" data-id="${c.id}">${esc(c.name)} ${c.count}F ${c.from===n.id?'to':'from'} ${esc(nodeLabel(o))}</button>`}).join('')||'<span class="muted">No cables yet. Use the Cable tool.</span>'}</div></section>`;
+  if(t!=='home'){const g=groupsAt(n.id);const sp=P.splices.filter(s=>s.node===n.id).sort((a,b)=>epSort(a.a,b.a));
+    const opts=sel=>g.map((x,i)=>`<option value="${x.key}" ${i===sel?'selected':''}>${esc(x.label)}</option>`).join('');
+    h+=`<section><h3>Splices (${sp.length})</h3>`;
+    if(g.length<2)h+='<p class="muted" style="margin:0">Connect at least two cables, or a cable and a splitter, to log splices here.</p>';
+    else h+=`<div class="sform"><select id="ga" aria-label="Side A">${opts(0)}</select><input id="na" type="number" min="1" value="1" aria-label="Side A start">
+      <span class="to">spliced to</span><select id="gb" aria-label="Side B">${opts(1)}</select><input id="nb" type="number" min="1" value="1" aria-label="Side B start">
+      <div class="bot"><label class="muted">Count <input id="cnt" type="number" min="1" value="1"></label><select id="stype" aria-label="Splice type">${Object.entries(STYPES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select><button class="primary" data-act="addSplice">Add splice</button></div></div><p class="msg" id="smsg"></p>`;
+    if(sp.length)h+=`<div class="tablewrap"><table><thead><tr><th>Side A</th><th>Side B</th><th></th></tr></thead><tbody>${sp.map(s=>`<tr><td>${epInfo(s.a).html}</td><td>${epInfo(s.b).html}</td><td class="tc"><span class="tag">${STYPES[s.type]||''}</span><button class="x" data-act="delSplice" data-id="${s.id}" title="Remove splice" aria-label="Remove splice">×</button></td></tr>`).join('')}</tbody></table></div>`;
+    h+='</section>'}
+  h+=`<section class="foot">${t!=='home'?'<button data-act="sheet">Save splice sheet</button><button data-act="nodeCsv">Splices CSV</button>':''}<button class="del" data-act="delNode">Delete</button></section>`;
+  return h}
+function cableInsp(c){const A=node(c.from),B=node(c.to);let rows='',both=0;
+  for(let f=1;f<=c.count;f++){const ep=`c:${c.id}:${f}`;
+    const pa=A.type==='home'?['ONT']:partners(A.id,ep).map(p=>epInfo(p).html),pb=B.type==='home'?['ONT']:partners(B.id,ep).map(p=>epInfo(p).html);
+    if(pa.length&&pb.length)both++;const col=fcol(f);
+    rows+=`<tr><td>${f}</td><td class="ep">${dots(f)} <small>${col.tube[0]}/${col.fib[0]}</small></td><td>${pa.join('<br>')||'<span class="muted">—</span>'}</td><td>${pb.join('<br>')||'<span class="muted">—</span>'}</td><td class="tc"><button data-act="traceFiber" data-f="${f}">Trace</button></td></tr>`}
+  return `<section><div class="kind"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20L21 4" stroke="currentColor" stroke-width="3"/></svg>Cable</div>
+  <label class="fl">Name<input data-cf="name" value="${esc(c.name)}"></label>
+  <div class="two"><label class="fl">Fiber count<select data-cf="count">${COUNTS.map(n=>`<option value="${n}" ${n===c.count?'selected':''}>${n}F</option>`).join('')}</select></label>
+  <label class="fl">Length (ft)<input data-cf="ft" type="number" min="0" value="${esc(c.ft||'')}"></label></div>
+  <label class="fl">Placement<select data-cf="kind"><option value="aerial" ${c.kind!=='ug'?'selected':''}>Aerial</option><option value="ug" ${c.kind==='ug'?'selected':''}>Underground</option></select></label>
+  <p class="row" style="margin:0 0 8px"><button class="link" data-act="selNode" data-id="${A.id}">${esc(nodeLabel(A))}</button><span class="muted">to</span><button class="link" data-act="selNode" data-id="${B.id}">${esc(nodeLabel(B))}</button><button data-act="flip" style="margin-left:auto">Swap ends</button></p>
+  <label class="fl">Notes<textarea data-cf="notes">${esc(c.notes||'')}</textarea></label><p class="msg" id="cmsg"></p></section>
+  <section><h3>Fibers</h3><p class="muted" style="margin:0">${both} of ${c.count} spliced at both ends</p>
+  <div class="tablewrap"><table><thead><tr><th>#</th><th>Color</th><th>At ${esc(nodeLabel(A))}</th><th>At ${esc(nodeLabel(B))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></section>
+  <section class="foot"><button class="del" data-act="delCable">Delete cable</button></section>`}
+function restoreForm(nid){const m=formMemo[nid];if(!m||!$('#ga'))return;
+  for(const k of ['ga','gb','stype'])if(m[k]&&[...$('#'+k).options].some(o=>o.value===m[k]))$('#'+k).value=m[k];
+  for(const k of ['na','nb','cnt'])if(m[k])$('#'+k).value=m[k];
+  if(m.msg){const el=$('#smsg');el.textContent=m.msg;el.className='msg '+(m.bad?'bad':'good');m.msg=''}}
+function addSplices(n){const g=groupsAt(n.id),ga=g.find(x=>x.key===$('#ga').value),gb=g.find(x=>x.key===$('#gb').value);
+  const na=+$('#na').value||1,nb=+$('#nb').value||1,cnt=Math.max(1,+$('#cnt').value||1),type=$('#stype').value;
+  const memo=formMemo[n.id]={ga:ga.key,gb:gb.key,stype:type,na,nb,cnt};
+  if(ga.key===gb.key&&ga.key.startsWith('si')){memo.msg='Pick two different endpoints.';memo.bad=true;renderInsp();return}
+  const used=new Set();P.splices.filter(s=>s.node===n.id).forEach(s=>{used.add(s.a);used.add(s.b)});
+  let added=0,skipped=0,over=0;
+  for(let i=0;i<cnt;i++){const ia=na+i,ib=nb+i;if(ia>ga.size||ib>gb.size){over++;continue}
+    const a=ga.ep(ia),b=gb.ep(ib);if(a===b||used.has(a)||used.has(b)){skipped++;continue}
+    P.splices.push({id:rid(),node:n.id,a,b,type});used.add(a);used.add(b);added++}
+  memo.na=Math.min(ga.size,na+cnt);memo.nb=Math.min(gb.size,nb+cnt);
+  memo.msg=`Added ${added} splice${added===1?'':'s'}.`+(skipped?` Skipped ${skipped} already spliced here.`:'')+(over?` ${over} past the end of the cable or splitter.`:'');
+  memo.bad=!added;if(added)save();renderInsp();renderMap()}
+function armDelete(btn,fn){if(btn.classList.contains('armed')){fn();return}btn.classList.add('armed');const old=btn.textContent;btn.textContent='Click again to confirm';
+  setTimeout(()=>{if(btn.isConnected){btn.classList.remove('armed');btn.textContent=old}},3500)}
+$('#insp').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+  const n=sel&&sel.kind==='node'?node(sel.id):null,c=sel&&sel.kind==='cable'?cable(sel.id):null;
+  switch(a){
+    case 'example':buildExample();save();renderAll();requestAnimationFrame(fit);break;
+    case 'exportJson':saveFile(slug(P.name)+'.json',JSON.stringify(P,null,1),'application/json');break;
+    case 'importJson':$('#fileIn').click();break;
+    case 'importKml':$('#kmlIn').click();break;
+    case 'exportKml':exportKml();break;
+    case 'layoutGps':layoutGps();break;
+    case 'exportCsv':saveFile(slug(P.name)+'-splices.csv',spliceCsv(P.splices),'text/csv');break;
+    case 'delProj':armDelete(b,deleteProject);break;
+    case 'traceHome':traceHome(n.id);break;
+    case 'tracePort':tracePort(n.id,+b.dataset.i);break;
+    case 'traceSpl':traceSpl(n.id,b.dataset.id);break;
+    case 'traceFiber':traceFiber(c.id,+b.dataset.f);break;
+    case 'addSpl':{const r=+$('#splRatio').value,names=new Set((n.splitters||[]).map(s=>s.name));let i=0;while(names.has(String.fromCharCode(65+i)))i++;
+      (n.splitters=n.splitters||[]).push({id:rid(),name:String.fromCharCode(65+i),ratio:r});save();renderInsp();break}
+    case 'delSpl':armDelete(b,()=>{const id=b.dataset.id;P.splices=P.splices.filter(s=>!(s.a.startsWith(`s:${id}:`)||s.b.startsWith(`s:${id}:`)));n.splitters=n.splitters.filter(s=>s.id!==id);save();renderInsp()});break;
+    case 'selCable':select('cable',b.dataset.id);break;
+    case 'selNode':{select('node',b.dataset.id);break}
+    case 'addSplice':addSplices(n);break;
+    case 'delSplice':P.splices=P.splices.filter(s=>s.id!==b.dataset.id);save();renderInsp();break;
+    case 'sheet':saveFile(slug(n.name)+'-splice-sheet.html',sheetHtml(n),'text/html');break;
+    case 'nodeCsv':saveFile(slug(n.name)+'-splices.csv',spliceCsv(P.splices.filter(s=>s.node===n.id)),'text/csv');break;
+    case 'delNode':armDelete(b,()=>delNode(n.id));break;
+    case 'flip':[c.from,c.to]=[c.to,c.from];save();renderInsp();break;
+    case 'delCable':armDelete(b,()=>delCable(c.id));break;
+  }});
+let mapRaf=0;const mapSoon=()=>{cancelAnimationFrame(mapRaf);mapRaf=requestAnimationFrame(renderMap)};
+function onField(e,commit){const t=e.target;
+  if(t.dataset.pf){P.name=t.value;renderProjSel();save();return}
+  if(t.dataset.f&&sel&&sel.kind==='node'){const n=node(sel.id),k=t.dataset.f;
+    if(k==='ports'){if(!commit)return;const v=Math.max(1,Math.min(128,parseInt(t.value)||16));
+      P.splices=P.splices.filter(s=>!(s.node===n.id&&[s.a,s.b].some(ep=>ep.startsWith(`p:${n.id}:`)&&+ep.split(':')[2]>v)));n.ports=v;save();renderInsp();return}
+    n[k]=t.value;save();if(k==='name'||k==='addr')mapSoon();if(commit&&(k==='lat'||k==='lon'))renderInsp();return}
+  if(t.dataset.cf&&sel&&sel.kind==='cable'){const c=cable(sel.id),k=t.dataset.cf;
+    if(k==='count'){if(!commit)return;const v=+t.value,before=P.splices.length;delCableSplices(c.id,v);c.count=v;save();renderInsp();renderMap();
+      const lost=before-P.splices.length;if(lost){const m=$('#cmsg');m.textContent=`Removed ${lost} splice${lost>1?'s':''} on fibers above ${v}.`;m.className='msg bad'}return}
+    if(k==='kind'){c.kind=t.value;save();renderMap();return}
+    c[k]=t.value;save();if(k==='name')mapSoon()}}
+$('#insp').addEventListener('input',e=>{if(e.target.matches('input[type=text],input:not([type]),textarea,input[type=search]')||e.target.dataset.cf==='ft')onField(e,false)});
+$('#insp').addEventListener('change',e=>onField(e,true));
+
+/* ---------- trace panel ---------- */
+$('#trClose').addEventListener('click',closeTrace);
+$('#trBody').addEventListener('click',e=>{const t=e.target.closest('[data-nid]');if(!t)return;const n=node(t.dataset.nid);if(n){centerOn(n);select('node',n.id)}});
+
+/* ---------- search ---------- */
+$('#search').addEventListener('input',e=>{const q=e.target.value.trim().toLowerCase(),r=$('#results');
+  if(!q||!P){r.hidden=true;return}
+  const hits=P.nodes.filter(n=>[n.name,n.addr,n.cust,n.ont].some(v=>v&&String(v).toLowerCase().includes(q))).slice(0,30);
+  r.innerHTML=hits.length?hits.map(n=>`<button data-id="${n.id}">${esc(nodeLabel(n))} <span class="muted">${esc(n.type==='home'&&n.addr?n.name:TYPES[n.type].label)}</span></button>`).join(''):'<div class="muted" style="padding:8px 10px">No matches</div>';r.hidden=false});
+$('#results').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const n=node(b.dataset.id);$('#results').hidden=true;$('#search').value='';if(n){centerOn(n);select('node',n.id)}});
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('.searchwrap'))$('#results').hidden=true});
+
+/* ---------- export ---------- */
+const slug=s=>(String(s||'export').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'export');
+const csvq=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+function spliceCsv(list){const lines=[['Node','Node type','Location','Side A','Side B','Type'].map(csvq).join(',')];
+  for(const s of [...list].sort((a,b)=>(node(a.node)?.name||'').localeCompare(node(b.node)?.name||'',undefined,{numeric:true})||epSort(a.a,b.a))){const n=node(s.node);
+    lines.push([n?.name,TYPES[n?.type]?.label,n?.addr,epInfo(s.a).txt,epInfo(s.b).txt,STYPES[s.type]].map(csvq).join(','))}
+  return lines.join('\r\n')}
+function sheetHtml(n){const cs=P.cables.filter(c=>c.from===n.id||c.to===n.id),sp=P.splices.filter(s=>s.node===n.id).sort((a,b)=>epSort(a.a,b.a));
+  const meta=[TYPES[n.type].label,n.addr,n.lat&&n.lon?`${n.lat}, ${n.lon}`:'',`Project: ${P.name}`,`Generated ${new Date().toLocaleString()}`].filter(Boolean).map(esc).join(' &nbsp;|&nbsp; ');
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(n.name)} splice sheet</title><style>body{font:13px/1.4 Arial,Helvetica,sans-serif;margin:28px;color:#111}h1{font-size:22px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 6px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #999;padding:4px 7px;text-align:left}th{background:#eee}.d{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid #444;margin-right:2px;vertical-align:-1px}small{color:#555}@media print{body{margin:10mm}}</style></head><body>
+  <h1>${esc(n.name)} splice sheet</h1><div>${meta}</div>${n.notes?`<p>${esc(n.notes)}</p>`:''}
+  <h2>Cables</h2><table><tr><th>Cable</th><th>Count</th><th>Other end</th><th>Placement</th><th>Length</th></tr>${cs.map(c=>`<tr><td>${esc(c.name)}</td><td>${c.count}F</td><td>${esc(nodeLabel(node(c.from===n.id?c.to:c.from)))}</td><td>${c.kind==='ug'?'Underground':'Aerial'}</td><td>${c.ft?esc(c.ft)+' ft':''}</td></tr>`).join('')}</table>
+  ${(n.splitters||[]).length?`<h2>Splitters</h2><table><tr><th>Name</th><th>Ratio</th></tr>${n.splitters.map(s=>`<tr><td>${esc(s.name)}</td><td>1x${s.ratio}</td></tr>`).join('')}</table>`:''}
+  <h2>Splices (${sp.length})</h2><table><tr><th>#</th><th>Side A</th><th>Side B</th><th>Type</th></tr>${sp.map((s,i)=>`<tr><td>${i+1}</td><td>${epInfo(s.a).html}</td><td>${epInfo(s.b).html}</td><td>${STYPES[s.type]||''}</td></tr>`).join('')}</table>
+  <p style="margin-top:28px">Tech: ____________________ &nbsp;&nbsp; Date: ____________ &nbsp;&nbsp; OTDR / loss verified: ______</p></body></html>`}
+async function saveFile(name,data,mime){
+  if(downloads){try{await downloads.save({filename:name,data:new Blob([data],{type:mime})});return}catch(e){if(e&&e.code==='declined')return}}
+  if(!window.claude){downloadBlob(name,new Blob([data],{type:mime}));return}
+  $('#mTitle').textContent=name;$('#mSub').textContent='Saving files is not available in this view. Copy the contents below into a file with this name.';$('#mText').value=data;$('#modal').hidden=false}
+$('#mClose').addEventListener('click',()=>$('#modal').hidden=true);
+$('#mCopy').addEventListener('click',async()=>{const t=$('#mText');try{await navigator.clipboard.writeText(t.value);$('#mCopy').textContent='Copied'}catch{t.select()}setTimeout(()=>$('#mCopy').textContent='Copy',1500)});
+$('#fileIn').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const p=JSON.parse(await f.text());if(!Array.isArray(p.nodes)||!Array.isArray(p.cables)||!Array.isArray(p.splices))throw new Error('Not a Splice Map export');
+    if(!p.id||projects.some(x=>x.id===p.id))p.id=rid();p.name=p.name||f.name.replace(/\.json$/i,'');p.seq=p.seq||{};
+    projects.push(p);await saveNow();openProject(p.id);await saveNow()}catch(err){setSave('Import failed: '+err.message)}});
+
+/* ---------- storage ---------- */
+function loadLocal(){try{return JSON.parse(localStorage.getItem(LK)||'{}')}catch{return {}}}
+function putLocal(p){try{const l=loadLocal();l[p.id]=p;localStorage.setItem(LK,JSON.stringify(l))}catch{}}
+function delLocal(id){try{const l=loadLocal();delete l[id];localStorage.setItem(LK,JSON.stringify(l))}catch{}}
+async function listProjects(){
+  if(db){try{const s=await db.collection('projects').get();const out=[];
+      for(const d of s.docs){const v=d.data()||{};try{const p=JSON.parse(v.data);p.updated=v.updated||p.updated||0;out.push(p)}catch{}}
+      return out}catch(e){console.warn('db list failed',e);db=null}}
+  return Object.values(loadLocal())}
+function setSave(t){$('#saveState').textContent=t}
+function save(){if(!P)return;clearTimeout(saveT);setSave('Unsaved changes');saveT=setTimeout(saveNow,700)}
+async function saveNow(){clearTimeout(saveT);if(!P)return;P.updated=Date.now();const json=JSON.stringify(P);putLocal(P);
+  if(!db){setSave('Saved in this browser');return}
+  try{await db.collection('projects').doc(P.id).set({name:P.name,updated:P.updated,data:json});
+    const kb=Math.round(json.length/1024);setSave(kb>200?`Saved (${kb} KB, nearing the project size limit)`:'Saved')}
+  catch(e){setSave('Not saved to cloud: '+(e&&e.code||'error')+' (kept in this browser)')}}
+function renderProjSel(){$('#projSel').innerHTML=[...projects].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${p.id}" ${P&&p.id===P.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+function openProject(id){lFitted=false;P=projects.find(p=>p.id===id)||projects[0];P.seq=P.seq||{};sel=null;traceState=null;$('#trace').hidden=true;cableStart=null;renderAll();requestAnimationFrame(()=>{if(viewMode==='map'){lFitted=true;fitLeaflet()}else fit()})}
+async function deleteProject(){const id=P.id;projects=projects.filter(p=>p.id!==id);delLocal(id);
+  if(db){try{await db.collection('projects').doc(id).delete()}catch(e){console.warn(e)}}
+  if(!projects.length){projects.push(blank('Untitled build'));P=projects[0];await saveNow()}
+  openProject(projects[0].id)}
+$('#projSel').addEventListener('change',async e=>{await saveNow();openProject(e.target.value)});
+$('#newProj').addEventListener('click',async()=>{await saveNow();const p=blank('Untitled build');projects.push(p);openProject(p.id);await saveNow();const i=document.querySelector('[data-pf=name]');if(i){i.focus();i.select()}});
+function renderAll(){renderProjSel();renderTools();renderMap();renderInsp()}
+
+/* ---------- example ---------- */
+function buildExample(){
+  const N=(type,name,x,y,extra={})=>{const n={id:rid(),type,name,x,y,notes:'',...extra};if(type!=='home'&&!n.splitters)n.splitters=[];P.nodes.push(n);return n};
+  const C=(name,a,b,count,ft,kind='aerial')=>{const c={id:rid(),name,from:a.id,to:b.id,count,ft:String(ft),kind,notes:''};P.cables.push(c);return c};
+  const S=(nd,a,b)=>P.splices.push({id:rid(),node:nd.id,a,b,type:'fusion'});
+  const olt=N('olt','OLT-01',0,0,{ports:16,addr:'Hub shelter'}),sc=N('closure','SC-01',280,0,{addr:'Pole 14'});
+  const sa={id:rid(),name:'A',ratio:8},sb={id:rid(),name:'B',ratio:8};const fdh=N('fdh','FDH-01',540,0,{splitters:[sa,sb]});
+  const m1=N('mst','MST-01',800,-150),m2=N('mst','MST-02',800,150);
+  const f1=C('F-01',olt,sc,48,1850,'ug'),f2=C('F-02',sc,fdh,24,2200),c1=C('C-01',fdh,m1,12,640),c2=C('C-02',fdh,m2,12,710);
+  S(olt,`p:${olt.id}:1`,`c:${f1.id}:1`);S(olt,`p:${olt.id}:2`,`c:${f1.id}:2`);
+  for(let i=1;i<=24;i++)S(sc,`c:${f1.id}:${i}`,`c:${f2.id}:${i}`);
+  S(fdh,`c:${f2.id}:1`,`s:${sa.id}:in`);S(fdh,`c:${f2.id}:2`,`s:${sb.id}:in`);
+  for(let i=1;i<=6;i++){S(fdh,`s:${sa.id}:o${i}`,`c:${c1.id}:${i}`);S(fdh,`s:${sb.id}:o${i}`,`c:${c2.id}:${i}`)}
+  [['4 Lakeview Dr',m1,c1,-240],['8 Lakeview Dr',m1,c1,-150],['12 Lakeview Dr',m1,c1,-60],['3 Orchard Ln',m2,c2,60],['7 Orchard Ln',m2,c2,150],['11 Orchard Ln',m2,c2,240]]
+    .forEach(([addr,m,dc,y],i)=>{const h=N('home','H-0'+(i+1),1060,y,{addr});const d=C('D-0'+(i+1),m,h,1,150+i*35);S(m,`c:${dc.id}:${(i%3)+1}`,`c:${d.id}:1`)});
+  P.seq={OLT:1,SC:1,FDH:1,MST:2,H:6,F:2,C:2,D:6};
+}
+
+/* ---------- Google Earth ---------- */
+const SCALE=1.2,RANK={olt:0,closure:1,fdh:2,mst:3,home:4},M2FT=3.28084;
+function ensureGeo(lat,lon){if(!P.geo)P.geo={lat0:lat,lon0:lon};return P.geo}
+function proj(lat,lon){const g=P.geo;return {x:Math.round((lon-g.lon0)*Math.cos(g.lat0*Math.PI/180)*111320*SCALE),y:Math.round(-(lat-g.lat0)*110540*SCALE)}}
+function unproj(x,y){const g=P.geo;return {lat:g.lat0-y/(110540*SCALE),lon:g.lon0+x/(Math.cos(g.lat0*Math.PI/180)*111320*SCALE)}}
+function hav(a,b){const r=Math.PI/180,dLat=(b[1]-a[1])*r,dLon=(b[0]-a[0])*r,s=Math.sin(dLat/2)**2+Math.cos(a[1]*r)*Math.cos(b[1]*r)*Math.sin(dLon/2)**2;return 12742000*Math.asin(Math.sqrt(s))}
+function nodeLL(n){const la=parseFloat(n.lat),lo=parseFloat(n.lon);if(isFinite(la)&&isFinite(lo))return {lat:la,lon:lo,real:true};if(P.geo){const u=unproj(n.x,n.y);return {...u,real:false}}return null}
+async function readKml(f){
+  if(/\.kmz$/i.test(f.name)||/zip/.test(f.type)){
+    if(!window.JSZip)throw new Error('KMZ support did not load. Save as KML from Google Earth and import that.');
+    const z=await JSZip.loadAsync(await f.arrayBuffer());const ks=Object.values(z.files).filter(x=>/\.kml$/i.test(x.name));
+    if(!ks.length)throw new Error('No KML found inside that KMZ.');
+    return (ks.find(x=>/(^|\/)doc\.kml$/i.test(x.name))||ks[0]).async('string')}
+  return f.text()}
+function parseKml(text){
+  const doc=new DOMParser().parseFromString(text,'application/xml');
+  if(doc.getElementsByTagName('parsererror').length)throw new Error('That file is not valid KML.');
+  const kid=(el,tag)=>[...el.children].find(c=>c.localName===tag),txt=(el,tag)=>{const c=kid(el,tag);return c?c.textContent.trim():''};
+  const coords=s=>(s||'').trim().split(/\s+/).map(t=>t.split(',').map(Number)).filter(a=>a.length>=2&&isFinite(a[0])&&isFinite(a[1])).map(a=>[a[0],a[1]]);
+  const points=[],lines=[];
+  for(const pm of doc.getElementsByTagName('Placemark')){
+    let folder='',p=pm.parentElement;while(p){if(p.localName==='Folder'){folder=txt(p,'name');break}p=p.parentElement}
+    const group=folder||txt(pm,'styleUrl').replace(/^#/,'')||'Unsorted',name=txt(pm,'name');
+    const pt=pm.getElementsByTagName('Point')[0],ls=pm.getElementsByTagName('LineString')[0];
+    if(pt){const c=coords(pt.getElementsByTagName('coordinates')[0]?.textContent);if(c.length)points.push({name,group,lon:c[0][0],lat:c[0][1]})}
+    else if(ls){const c=coords(ls.getElementsByTagName('coordinates')[0]?.textContent);if(c.length>=2)lines.push({name,group,path:c})}}
+  return {points,lines}}
+function guessType(s){s=' '+s.toLowerCase()+' ';
+  if(/(\bolt\b|\bhub\b|central office|\bco\b|headend|shelter)/.test(s))return 'olt';
+  if(/(fdh|cabinet|\blcp\b|\bfdc\b|\bfdt\b)/.test(s))return 'fdh';
+  if(/(\bmst|terminal|\bnap\b|\btap\b|pedestal|\bped\b|flowerpot|\bfat\b)/.test(s))return 'mst';
+  if(/(splice|closure|fosc|\bsc\b|\bcase\b|enclosure)/.test(s))return 'closure';
+  if(/(home|house|premise|address|\bsubs?\b|customer|\bont\b|drop|\bhp\b|passing|residen|\blot\b)/.test(s))return 'home';
+  if(/(pole|handhole|vault|\bhh\b|anchor|\bguy|riser|slack|\bmh\b|manhole)/.test(s))return 'skip';
+  return ''}
+function countFrom(s){const m=String(s||'').match(/(\d{1,3})\s*-?\s*(?:f\b|ct\b|count|fib|fiber|fibre|strand)/i);if(!m)return 0;const v=+m[1];return COUNTS.find(c=>c>=v)||288}
+function groupBy(arr){const m=new Map();for(const x of arr){if(!m.has(x.group))m.set(x.group,[]);m.get(x.group).push(x)}return [...m.entries()]}
+$('#kmlIn').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const d=parseKml(await readKml(f));if(!d.points.length&&!d.lines.length)throw new Error('No points or lines found in that file.');
+    impData={file:f.name,pg:groupBy(d.points),lg:groupBy(d.lines)};showImport()}
+  catch(err){geoMsg={t:err.message,bad:true};select(null)}});
+function showImport(){const {file,pg,lg}=impData;
+  const topt=sel=>['skip',...Object.keys(TYPES)].map(t=>`<option value="${t}" ${t===sel?'selected':''}>${t==='skip'?'Skip':esc(TYPES[t].label)}</option>`).join('');
+  const prow=([g,items],i)=>{let t=guessType(g);if(!t){const v=items.slice(0,20).map(x=>guessType(x.name)).filter(Boolean);t=v[0]||(items.filter(x=>/^\d+\s+\S/.test(x.name)).length>items.length/2?'home':'closure')}
+    return `<tr><td>${esc(g)}</td><td>${items.length}</td><td><select data-pg="${i}">${topt(t)}</select></td></tr>`};
+  const lrow=([g,items],i)=>{const skip=/(strand|messenger|\bguy|road|parcel|boundary|easement|row\b)/i.test(g);const dc=/drop/i.test(g)?1:(countFrom(g)||12);
+    return `<tr><td>${esc(g)}</td><td>${items.length}</td><td><select data-lg="${i}"><option value="cable">Cables</option><option value="skip" ${skip?'selected':''}>Skip</option></select></td><td><select data-lc="${i}">${COUNTS.map(c=>`<option value="${c}" ${c===dc?'selected':''}>${c}F</option>`).join('')}</select></td></tr>`};
+  $('#impBody').innerHTML=`<p class="muted" style="margin:0 0 8px">${esc(file)}: ${pg.reduce((s,g)=>s+g[1].length,0)} points and ${lg.reduce((s,g)=>s+g[1].length,0)} lines. Choose what each folder becomes. Everything lands in the current project, ${esc(P.name)}.</p>
+  ${pg.length?`<table class="imptable"><thead><tr><th>Point folder</th><th>Count</th><th>Import as</th></tr></thead><tbody>${pg.map(prow).join('')}</tbody></table>`:''}
+  ${lg.length?`<table class="imptable" style="margin-top:12px"><thead><tr><th>Line folder</th><th>Count</th><th>Import as</th><th>Default count</th></tr></thead><tbody>${lg.map(lrow).join('')}</tbody></table>
+  <p class="muted" style="font-size:13px">A line becomes a cable when both ends land near an imported node. Fiber count is read from the line name (like "48F" or "144ct") when present. Drops to homes are set to 1F.</p>
+  <label class="fl" style="max-width:220px">Snap line ends within (ft)<input id="snapFt" type="number" min="1" value="50"></label>`:''}`;
+  $('#imp').hidden=false}
+$('#impCancel').addEventListener('click',()=>{$('#imp').hidden=true;impData=null});
+$('#impGo').addEventListener('click',()=>{const {pg,lg}=impData;
+  const pmap=pg.map((_,i)=>$(`[data-pg="${i}"]`).value),lmap=lg.map((_,i)=>$(`[data-lg="${i}"]`).value),lcnt=lg.map((_,i)=>+$(`[data-lc="${i}"]`).value);
+  const tol=(+($('#snapFt')?.value)||50)/M2FT;
+  const pts=pg.flatMap(([g,it],i)=>pmap[i]==='skip'?[]:it.map(x=>({...x,type:pmap[i]})));
+  const lns=lg.flatMap(([g,it],i)=>lmap[i]==='skip'?[]:it.map(x=>({...x,def:lcnt[i]})));
+  if(!pts.length&&!lns.length){$('#imp').hidden=true;return}
+  if(!P.geo){const all=pts.length?pts.map(p=>[p.lon,p.lat]):lns.flatMap(l=>l.path);ensureGeo(all.reduce((s,a)=>s+a[1],0)/all.length,all.reduce((s,a)=>s+a[0],0)/all.length)}
+  let nAdd=0,dup=0;
+  for(const p of pts){
+    if(P.nodes.some(n=>{const ll=nodeLL(n);return ll&&ll.real&&(n.name===p.name||n.addr===p.name)&&hav([ll.lon,ll.lat],[p.lon,p.lat])<3})){dup++;continue}
+    const n={id:rid(),type:p.type,notes:'',lat:p.lat.toFixed(7),lon:p.lon.toFixed(7),...proj(p.lat,p.lon)};
+    if(p.type==='home'){n.name=nextName('H');n.addr=p.name}else n.name=p.name||nextName(TYPES[p.type].prefix);
+    if(p.type==='olt')n.ports=16;if(p.type!=='home')n.splitters=[];P.nodes.push(n);nAdd++}
+  const cand=P.nodes.map(n=>({n,ll:nodeLL(n)})).filter(x=>x.ll&&x.ll.real);
+  const near=c=>{let best=null,bd=tol;for(const x of cand){const d=hav(c,[x.ll.lon,x.ll.lat]);if(d<=bd){bd=d;best=x.n}}return best};
+  let cAdd=0,cSkip=0;
+  for(const l of lns){let a=near(l.path[0]),b=near(l.path[l.path.length-1]),path=l.path;
+    if(!a||!b||a===b){cSkip++;continue}
+    if(RANK[a.type]>RANK[b.type]){[a,b]=[b,a];path=[...path].reverse()}
+    const drop=a.type==='home'||b.type==='home';let m=0;for(let i=1;i<path.length;i++)m+=hav(path[i-1],path[i]);
+    const pre=drop?'D':(a.type==='olt'||b.type==='olt')?'F':'C';
+    P.cables.push({id:rid(),name:l.name||nextName(pre),from:a.id,to:b.id,count:drop?1:(countFrom(l.name)||l.def),ft:String(Math.round(m*M2FT)),
+      kind:/(\bug\b|underground|bore|conduit|duct)/i.test(l.group+' '+l.name)?'ug':'aerial',notes:'',path:path.map(c=>[+c[0].toFixed(7),+c[1].toFixed(7)])});cAdd++}
+  $('#imp').hidden=true;impData=null;
+  geoMsg={t:`Added ${nAdd} node${nAdd===1?'':'s'} and ${cAdd} cable${cAdd===1?'':'s'}.`+(dup?` ${dup} points were already in the project.`:'')+(cSkip?` ${cSkip} lines skipped because an end wasn't near a node; raise the snap distance or add the missing node.`:''),bad:!nAdd&&!cAdd};
+  save();sel=null;renderAll();requestAnimationFrame(fit)});
+function layoutGps(){const withLL=P.nodes.filter(n=>{const ll=nodeLL(n);return ll&&ll.real});
+  if(!withLL.length){geoMsg={t:'No nodes have latitude and longitude yet.',bad:true};renderInsp();return}
+  if(!P.geo){const L=withLL.map(n=>nodeLL(n));ensureGeo(L.reduce((s,x)=>s+x.lat,0)/L.length,L.reduce((s,x)=>s+x.lon,0)/L.length)}
+  for(const n of withLL){const ll=nodeLL(n);Object.assign(n,proj(ll.lat,ll.lon))}
+  geoMsg={t:`Placed ${withLL.length} nodes by GPS.`+(withLL.length<P.nodes.length?` ${P.nodes.length-withLL.length} without coordinates stayed where they were.`:'')};
+  save();renderAll();requestAnimationFrame(fit)}
+const strip=s=>String(s).replace(/<[^>]*>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\s+/g,' ').trim();
+function flatText(t){const out=[];let c=t;while(c){out.push(strip(c.t));c=c.kids&&c.kids.length===1?c.kids[0]:null}return out.join(' → ')}
+function kmlColor(hex,a='ff'){const h=hex.replace('#','');return a+h.slice(4,6)+h.slice(2,4)+h.slice(0,2)}
+function buildKml(){
+  const ICON={olt:'ranger_station',closure:'placemark_circle',fdh:'square',mst:'triangle',home:'homegardenbusiness'};
+  const ICOL={olt:'#1c2b35',closure:'#0d6b86',fdh:'#7b3fb8',mst:'#2f7d46',home:'#e2700c'};
+  let styles=Object.keys(ICON).map(t=>`<Style id="n-${t}"><IconStyle><color>${kmlColor(ICOL[t])}</color><scale>1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/${ICON[t]}.png</href></Icon></IconStyle><LabelStyle><scale>0.8</scale></LabelStyle></Style>`).join('');
+  styles+=`<Style id="c-drop"><LineStyle><color>${kmlColor('#f1d01a')}</color><width>1.5</width></LineStyle></Style><Style id="c-dist"><LineStyle><color>${kmlColor('#ef8a17')}</color><width>3</width></LineStyle></Style><Style id="c-feed"><LineStyle><color>${kmlColor('#d63030')}</color><width>5</width></LineStyle></Style>`;
+  let missing=0;const cd=s=>`<![CDATA[${String(s).replace(/]]>/g,']]&gt;')}]]>`;
+  const folders=Object.keys(TYPES).map(t=>{const pms=P.nodes.filter(n=>n.type===t).map(n=>{const ll=nodeLL(n);if(!ll){missing++;return ''}
+    let d=`<b>${esc(TYPES[t].label)}</b>`+(n.addr?`<br>${esc(n.addr)}`:'')+(n.notes?`<br>${esc(n.notes)}`:'');
+    if(t==='home'){const {tree}=homeTree(n.id);d+=(n.cust?`<br>Customer: ${esc(n.cust)}`:'')+(n.ont?`<br>ONT: ${esc(n.ont)}`:'')+`<br><br><b>Path</b><br>${esc(flatText(tree))}`}
+    else{const sp=P.splices.filter(s=>s.node===n.id).sort((a,b)=>epSort(a.a,b.a));
+      if((n.splitters||[]).length)d+=`<br><br><b>Splitters</b><br>${n.splitters.map(s=>esc(s.name)+' 1x'+s.ratio).join(', ')}`;
+      if(sp.length)d+=`<br><br><b>Splices (${sp.length})</b><table border="1" cellpadding="2" style="border-collapse:collapse">${sp.map(s=>`<tr><td>${esc(epInfo(s.a).txt)}</td><td>${esc(epInfo(s.b).txt)}</td></tr>`).join('')}</table>`}
+    return `<Placemark><name>${esc(nodeLabel(n))}</name><styleUrl>#n-${t}</styleUrl><description>${cd(d)}</description><Point><coordinates>${(+ll.lon).toFixed(7)},${(+ll.lat).toFixed(7)},0</coordinates></Point></Placemark>`}).join('');
+    return `<Folder><name>${esc(TYPES[t].label)}</name>${pms}</Folder>`}).join('');
+  const cab=P.cables.map(c=>{const A=node(c.from),B=node(c.to);let path=c.path;
+    if(!path){const a=nodeLL(A),b=nodeLL(B);if(!a||!b)return '';path=[[a.lon,a.lat],[b.lon,b.lat]]}
+    const st=c.count<=2?'c-drop':(A.type==='olt'||B.type==='olt'||c.count>=96)?'c-feed':'c-dist';
+    const d=`${c.count}F ${c.kind==='ug'?'underground':'aerial'}${c.ft?', '+esc(c.ft)+' ft':''}<br>${esc(nodeLabel(A))} to ${esc(nodeLabel(B))}`+(c.notes?`<br>${esc(c.notes)}`:'');
+    return `<Placemark><name>${esc(c.name)} ${c.count}F</name><styleUrl>#${st}</styleUrl><description>${cd(d)}</description><LineString><tessellate>1</tessellate><coordinates>${path.map(p=>`${(+p[0]).toFixed(7)},${(+p[1]).toFixed(7)},0`).join(' ')}</coordinates></LineString></Placemark>`}).join('');
+  const kml=`<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(P.name)}</name>${styles}${folders}<Folder><name>Cables</name>${cab}</Folder></Document></kml>`;
+  return {kml,missing}}
+async function exportKml(){const {kml,missing}=buildKml();
+  if(!P.geo&&missing===P.nodes.length){geoMsg={t:'Nothing to export yet: add latitude and longitude to your nodes, or import a KML first.',bad:true};renderInsp();return}
+  const note=missing?` ${missing} node${missing>1?'s':''} without coordinates were left out.`:'';
+  if(downloads&&window.JSZip){try{const z=new JSZip();z.file('doc.kml',kml);
+      await downloads.save({filename:slug(P.name)+'.kmz.zip',data:await z.generateAsync({type:'blob',compression:'DEFLATE'})});
+      geoMsg={t:'Saved. Rename the file to end in .kmz (drop the .zip), then open it in Google Earth.'+note};renderInsp();return}
+    catch(e){if(e&&e.code==='declined')return}}
+  if(!window.claude){if(window.JSZip){const z=new JSZip();z.file('doc.kml',kml);downloadBlob(slug(P.name)+'.kmz',await z.generateAsync({type:'blob',compression:'DEFLATE'}))}
+    else downloadBlob(slug(P.name)+'.kml',new Blob([kml],{type:'application/vnd.google-earth.kml+xml'}));
+    geoMsg={t:'Exported. Open the file in Google Earth.'+note};renderInsp();return}
+  $('#mTitle').textContent=slug(P.name)+'.kml';$('#mSub').textContent='Copy this into a text file named '+slug(P.name)+'.kml and open it in Google Earth.'+note;$('#mText').value=kml;$('#modal').hidden=false}
+
+/* ---------- satellite map (Leaflet) ---------- */
+let viewMode=(()=>{try{return localStorage.getItem('splicemap.view')||'schem'}catch{return 'schem'}})();
+let lmap=null,lLayer=null,ghostL=null,routePts=[],lFitted=false,lMissing=0;
+function pathFt(path){let m=0;for(let i=1;i<path.length;i++)m+=hav(path[i-1],path[i]);return String(Math.round(m*M2FT))}
+function llOf(n){const ll=nodeLL(n);return ll?[ll.lat,ll.lon]:null}
+function initLeaflet(){if(lmap||!window.L)return;
+  const ArcExport=L.TileLayer.extend({getTileUrl(c){const ts=this.getTileSize(),m=this._map,z=c.z,
+    nw=m.unproject(L.point(c.x*ts.x,c.y*ts.y),z),se=m.unproject(L.point((c.x+1)*ts.x,(c.y+1)*ts.y),z),
+    a=L.CRS.EPSG3857.project(nw),b=L.CRS.EPSG3857.project(se);
+    return `${this._url}/export?bbox=${a.x},${b.y},${b.x},${a.y}&bboxSR=3857&imageSR=3857&size=${ts.x},${ts.y}&format=jpg&f=image`}});
+  lmap=L.map('lmap',{zoomControl:false,maxZoom:21}).setView([42.66,-77.05],12);
+  const base={
+    'NY State orthos (6–12 in)':new ArcExport('https://orthos.its.ny.gov/arcgis/rest/services/wms/Latest/MapServer',{maxZoom:21,attribution:'NYS ITS Geospatial Services'}),
+    'Esri satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Imagery © Esri, Maxar, Earthstar Geographics'}),
+    'USGS imagery':L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:16,maxZoom:21,attribution:'USGS The National Map'}),
+    'Street map (OSM)':L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxNativeZoom:19,maxZoom:21,attribution:'© OpenStreetMap contributors'})};
+  const roads=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Roads © Esri'});
+  let saved='';try{saved=localStorage.getItem('splicemap.base')||''}catch{}
+  (base[saved]||base['NY State orthos (6–12 in)']).addTo(lmap);roads.addTo(lmap);
+  L.control.layers(base,{'Road names':roads},{position:'bottomright'}).addTo(lmap);
+  L.control.scale({imperial:true,metric:false,position:'bottomright'}).addTo(lmap);
+  lmap.on('baselayerchange',e=>{try{localStorage.setItem('splicemap.base',e.name)}catch{}});
+  lLayer=L.layerGroup().addTo(lmap);
+  lmap.on('click',e=>{const {lat,lng}=e.latlng;
+    if(mode.startsWith('add:')){addNodeLL(mode.slice(4),lat,lng);return}
+    if(mode==='cable'&&cableStart){routePts.push([+lng.toFixed(7),+lat.toFixed(7)]);drawGhost();return}
+    if(mode==='select'&&sel)select(null)});
+  lmap.on('mousemove',e=>{if(mode==='cable'&&cableStart)drawGhost(e.latlng)});
+  lmap.on('zoomend',()=>$('#lmap').classList.toggle('far',lmap.getZoom()<16));}
+function renderLeaflet(){if(!lmap)return;lLayer.clearLayers();if(ghostL){ghostL.remove();ghostL=null}
+  const hn=traceState&&traceState.nodes,hc=traceState&&traceState.cables;let missing=0;
+  for(const c of P.cables){const A=node(c.from),B=node(c.to);if(!A||!B)continue;
+    let pts=c.path?c.path.map(p=>[p[1],p[0]]):null;if(!pts){const a=llOf(A),b=llOf(B);if(!a||!b)continue;pts=[a,b]}
+    const on=sel&&sel.kind==='cable'&&sel.id===c.id,tr=hc&&hc.has(c.id),w=c.count<=2?2:c.count<=12?3:c.count<=48?4:6;
+    L.polyline(pts,{color:tr?'#ff9a3d':on?'#4cd2f4':(c.count<=2?'#f1d01a':'#ef8a17'),weight:tr||on?w+3:w,opacity:.95,dashArray:c.kind==='ug'?'10 7':null,interactive:false}).addTo(lLayer);
+    L.polyline(pts,{color:'#000',opacity:0,weight:18,bubblingMouseEvents:false})
+      .bindTooltip(`${esc(c.name)} ${c.count}F${c.ft?', '+esc(c.ft)+' ft':''}`,{sticky:true})
+      .on('click',()=>{if(mode!=='cable')select('cable',c.id)}).addTo(lLayer)}
+  for(const n of P.nodes){const ll=llOf(n);if(!ll){missing++;continue}
+    const cls=`nd ${n.type}`+(sel&&sel.kind==='node'&&sel.id===n.id?' sel':'')+(hn&&hn.has(n.id)?' tr':'')+(cableStart===n.id?' start':'');
+    const icon=L.divIcon({className:'lnode',html:`<svg viewBox="-18 -18 36 36" class="${cls}">${shape(n.type)}</svg><div class="lab">${esc(nodeLabel(n))}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+    const m=L.marker(ll,{icon,draggable:mode==='select',keyboard:false,riseOnHover:true}).addTo(lLayer);
+    m.on('click',()=>onNodeClickL(n.id));m.on('dragend',e=>{const p=e.target.getLatLng();moveNodeLL(n,p.lat,p.lng)})}
+  lMissing=missing;if(cableStart)drawGhost();$('#hint').textContent=hintText()}
+function onNodeClickL(id){
+  if(mode==='cable'){if(!cableStart){cableStart=id;routePts=[]}
+    else if(id!==cableStart){const la=nodeLL(node(cableStart)),lb=nodeLL(node(id));const from=cableStart;cableStart=null;
+      addCable(from,id,[[+la.lon.toFixed(7),+la.lat.toFixed(7)],...routePts,[+lb.lon.toFixed(7),+lb.lat.toFixed(7)]]);routePts=[]}
+    renderTools();renderMap();return}
+  select('node',id)}
+function drawGhost(cur){if(!lmap)return;const a=cableStart&&nodeLL(node(cableStart));if(!a){if(ghostL){ghostL.remove();ghostL=null}return}
+  const pts=[[a.lat,a.lon],...routePts.map(p=>[p[1],p[0]])];if(cur)pts.push([cur.lat,cur.lng]);
+  if(!ghostL)ghostL=L.polyline(pts,{color:'#4cd2f4',weight:2.5,dashArray:'6 5',interactive:false}).addTo(lmap);else ghostL.setLatLngs(pts);
+  $('#hint').textContent=`From ${nodeLabel(node(cableStart))}: ${pathFt(pts.map(p=>[p[1],p[0]]))} ft so far. Click to add bends, click the end node to finish. Backspace undoes a bend.`}
+function addNodeLL(type,lat,lon){ensureGeo(lat,lon);addNode(type,proj(lat,lon),{lat:lat.toFixed(7),lon:lon.toFixed(7)})}
+function moveNodeLL(n,lat,lon){ensureGeo(lat,lon);n.lat=lat.toFixed(7);n.lon=lon.toFixed(7);Object.assign(n,proj(lat,lon));
+  for(const c of P.cables){if(!c.path||(c.from!==n.id&&c.to!==n.id))continue;const pt=[+lon.toFixed(7),+lat.toFixed(7)];
+    if(c.from===n.id)c.path[0]=pt;if(c.to===n.id)c.path[c.path.length-1]=pt;c.ft=pathFt(c.path)}
+  save();renderMap();if(sel&&sel.kind==='node'&&sel.id===n.id)renderInsp()}
+function fitLeaflet(){if(!lmap)return;const pts=[];P.nodes.forEach(n=>{const l=llOf(n);if(l)pts.push(l)});P.cables.forEach(c=>(c.path||[]).forEach(p=>pts.push([p[1],p[0]])));
+  if(pts.length)lmap.fitBounds(pts,{padding:[50,50],maxZoom:18})}
+function setView(v){if(v==='map'&&!window.L){geoMsg={t:'The map library did not load. Check your connection and reload.',bad:true};renderInsp();return}
+  viewMode=v;try{localStorage.setItem('splicemap.view',v)}catch{}
+  document.body.classList.toggle('mapview',v==='map');document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  cableStart=null;routePts=[];renderTools();
+  if(v==='map'){initLeaflet();setTimeout(()=>{lmap.invalidateSize();renderMap();if(!lFitted){fitLeaflet();lFitted=true}},0)}
+  else{renderMap();requestAnimationFrame(fit)}}
+$('#viewSeg').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)setView(b.dataset.view)});
+function hintText(){const m=viewMode==='map';
+  if(mode.startsWith('add:'))return `Click the ${m?'imagery':'map'} to place a ${TYPES[mode.slice(4)].label.toLowerCase()}. Esc to stop.`;
+  if(mode==='cable')return cableStart?`From ${nodeLabel(node(cableStart))}: ${m?'click along the route to add bends, then click':'now click'} the other end.`:'Click the upstream node first. Esc to finish.';
+  if(m)return 'Drag markers to move them. Click a node or cable to edit it.'+(lMissing?` ${lMissing} node${lMissing>1?'s have':' has'} no GPS and only show on the schematic.`:'');
+  return 'Drag nodes to move them. Drag empty space to pan, scroll to zoom.'}
+function downloadBlob(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+
+/* ---------- init ---------- */
+(async function init(){
+  renderTools();setSave('');
+  const use=n=>window.claude&&window.claude.use?window.claude.use(n).catch(()=>null):Promise.resolve(null);
+  [db,downloads]=await Promise.all([use('db'),use('downloads')]);
+  projects=await listProjects();
+  if(!projects.length){const p=blank('First build');projects.push(p);P=p;await saveNow()}
+  projects.sort((a,b)=>(b.updated||0)-(a.updated||0));
+  $('#loading').remove();openProject(projects[0].id);setView(viewMode);
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch{}
+  if(!db)setSave('Saving in this browser only');
+})();
+window.addEventListener('resize',()=>applyView());
+
+/* ---------- PWA ---------- */
+if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('SW failed',e)));
+let installEvt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;$('#installBtn').hidden=false});
+$('#installBtn').addEventListener('click',async()=>{if(!installEvt)return;installEvt.prompt();await installEvt.userChoice;installEvt=null;$('#installBtn').hidden=true});
+window.addEventListener('appinstalled',()=>{$('#installBtn').hidden=true});
+const netUpd=()=>{$('#netState').hidden=navigator.onLine};window.addEventListener('online',netUpd);window.addEventListener('offline',netUpd);netUpd();
+</script>
+</body>
+</html>
